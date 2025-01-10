@@ -24,7 +24,7 @@ pub fn successful_decode_metric_int_datatype_value_test() {
 
 pub fn incorrect_data_type_decode_metric_test() {
   let metric =
-    "{\"name\": \"My Metric\",\"alias\": 1,\"timestamp\": 1479123452194,\"dataType\": \"Int\",\"value\": \"This is a test string\"}"
+    "{\"name\": \"My Metric\",\"alias\": 1,\"timestamp\": 1479123452194,\"dataType\": \"Float\",\"value\": \"This is a test string\"}"
 
   sparkleplug.string_to_metric(metric)
   |> should.be_error
