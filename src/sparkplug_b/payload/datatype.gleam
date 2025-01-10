@@ -1,3 +1,15 @@
+import gleam/dynamic
+import gleam/option.{type Option, Some}
+import gleam/result
+
+pub type DataTypeValue {
+  DataTypeValue(Option(Int))
+}
+
+type DataTypeStringValue {
+  DataTypeStringValue(Option(String))
+}
+
 pub type DataType {
   Unknown
   Int8
@@ -118,6 +130,132 @@ pub fn from_int(int: Int) -> Result(DataType, DataTypeParseError) {
         "No data type corresponding to the given Int value.",
       ))
   }
+}
+
+pub fn to_string(data_type: DataType) -> String {
+  case data_type {
+    Unknown -> "Unknown"
+    Int8 -> "Int8"
+    Int16 -> "Int16"
+    Int32 -> "Int32"
+    Int64 -> "Int64"
+    UInt8 -> "UInt8"
+    UInt16 -> "UInt16"
+    UInt32 -> "UInt32"
+    UInt64 -> "UInt64"
+    Float -> "Float"
+    Double -> "Double"
+    Boolean -> "Boolean"
+    String -> "String"
+    DateTime -> "DateTime"
+    Text -> "Text"
+    UUID -> "UUID"
+    DataSet -> "DataSet"
+    Bytes -> "Bytes"
+    File -> "File"
+    Template -> "Template"
+    PropertySet -> "PropertySet"
+    PropertySetList -> "PropertySetList"
+    Int8Array -> "Int8Array"
+    Int16Array -> "Int16Array"
+    Int32Array -> "Int32Array"
+    Int64Array -> "Int64Array"
+    UInt8Array -> "UInt8Array"
+    UInt16Array -> "UInt16Array"
+    UInt32Array -> "UInt32Array"
+    UInt64Array -> "UInt64Array"
+    FloatArray -> "FloatArray"
+    DoubleArray -> "DoubleArray"
+    BooleanArray -> "BooleanArray"
+    StringArray -> "StringArray"
+    DateTimeArray -> "DateTimeArray"
+  }
+}
+
+pub fn from_string(string: String) -> Result(DataType, DataTypeParseError) {
+  case string {
+    "Unknown" -> Ok(Unknown)
+    "Int8" -> Ok(Int8)
+    "Int16" -> Ok(Int16)
+    "Int32" -> Ok(Int32)
+    "Int64" -> Ok(Int64)
+    "UInt8" -> Ok(UInt8)
+    "UInt16" -> Ok(UInt16)
+    "UInt32" -> Ok(UInt32)
+    "UInt64" -> Ok(UInt64)
+    "Float" -> Ok(Float)
+    "Double" -> Ok(Double)
+    "Boolean" -> Ok(Boolean)
+    "String" -> Ok(String)
+    "DateTime" -> Ok(DateTime)
+    "Text" -> Ok(Text)
+    "UUID" -> Ok(UUID)
+    "DataSet" -> Ok(DataSet)
+    "Bytes" -> Ok(Bytes)
+    "File" -> Ok(File)
+    "Template" -> Ok(Template)
+    "PropertySet" -> Ok(PropertySet)
+    "PropertySetList" -> Ok(PropertySetList)
+    "Int8Array" -> Ok(Int8Array)
+    "Int16Array" -> Ok(Int16Array)
+    "Int32Array" -> Ok(Int32Array)
+    "Int64Array" -> Ok(Int64Array)
+    "UInt8Array" -> Ok(UInt8Array)
+    "UInt16Array" -> Ok(UInt16Array)
+    "UInt32Array" -> Ok(UInt32Array)
+    "UInt64Array" -> Ok(UInt64Array)
+    "FloatArray" -> Ok(FloatArray)
+    "DoubleArray" -> Ok(DoubleArray)
+    "BooleanArray" -> Ok(BooleanArray)
+    "StringArray" -> Ok(StringArray)
+    "DateTimeArray" -> Ok(DateTimeArray)
+    _ ->
+      Error(DataTypeParseError(
+        "No data type corresponding to the given String value.",
+      ))
+  }
+}
+
+pub fn decode_datatype_value(
+  data: dynamic.Dynamic,
+) -> Result(DataTypeValue, dynamic.DecodeErrors) {
+  let maybe_string_value =
+    data
+    |> dynamic.decode1(
+      DataTypeStringValue,
+      dynamic.optional_field("dataType", dynamic.string),
+    )
+
+  case maybe_string_value {
+    Ok(string_val) -> {
+      convert_datatype_value(string_val)
+      |> result.map_error(fn(_) {
+        [dynamic.DecodeError(expected: "", found: "", path: [])]
+      })
+    }
+    Error(_) -> {
+      data
+      |> dynamic.decode1(
+        DataTypeValue,
+        dynamic.optional_field("dataType", dynamic.int),
+      )
+    }
+  }
+}
+
+fn convert_datatype_value(
+  data_type_string_value: DataTypeStringValue,
+) -> Result(DataTypeValue, DataTypeParseError) {
+  let DataTypeStringValue(maybe_string) = data_type_string_value
+
+  option.map(maybe_string, fn(string_value) {
+    from_string(string_value) |> result.map(to_int)
+  })
+  |> option.to_result(DataTypeParseError(
+    "Couldn't convert String value to Int datatype representation.",
+  ))
+  |> result.flatten
+  |> result.map(fn(int_val) { DataTypeValue(Some(int_val)) })
 }
 
 pub type DataTypeParseError {

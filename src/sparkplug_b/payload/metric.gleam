@@ -1,6 +1,6 @@
 import gleam/option.{type Option}
 import sparkplug_b/payload/dataset.{type DataSet}
-import sparkplug_b/payload/propertyset.{type PropertySet}
+import sparkplug_b/payload/propertyset
 
 pub type Metric {
   Metric(
@@ -12,7 +12,7 @@ pub type Metric {
     is_transient: Option(Bool),
     is_null: Option(Bool),
     metadata: Option(BitArray),
-    properties: Option(PropertySet),
+    value: Option(Value),
   )
 }
 
@@ -27,9 +27,13 @@ pub type Value {
   DatasetValue(DataSet)
   TemplateValue(Template)
   ExtensionValue(MetricValueExtension)
+  PropertySetValue(propertyset.PropertySet)
+  PropertySetListValue(propertyset.PropertySetList)
 }
 
-pub type MetricValueExtension
+pub type MetricValueExtension {
+  MetricValueExtension(value: BitArray)
+}
 
 pub type Template {
   Template(
