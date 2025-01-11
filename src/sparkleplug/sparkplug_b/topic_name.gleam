@@ -1,8 +1,8 @@
 import gleam/result
 import gleam/string
-import sparkplug_b/device_message_types.{type DeviceMessageType}
-import sparkplug_b/node_message_types.{type NodeMessageType}
-import sparkplug_b/topic_namespace.{type TopicNamespace}
+import sparkleplug/sparkplug_b/device_message_types.{type DeviceMessageType}
+import sparkleplug/sparkplug_b/node_message_types.{type NodeMessageType}
+import sparkleplug/sparkplug_b/topic_namespace.{type TopicNamespace}
 
 pub type TopicName {
   NodeMessage(

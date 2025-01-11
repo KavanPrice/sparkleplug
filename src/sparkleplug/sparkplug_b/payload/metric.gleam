@@ -1,6 +1,6 @@
 import gleam/option.{type Option}
-import sparkplug_b/payload/dataset.{type DataSet}
-import sparkplug_b/payload/propertyset
+import sparkleplug/sparkplug_b/payload/dataset.{type DataSet}
+import sparkleplug/sparkplug_b/payload/propertyset
 
 pub type Metric {
   Metric(

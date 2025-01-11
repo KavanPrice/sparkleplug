@@ -1,5 +1,5 @@
 import gleam/option.{type Option}
-import sparkplug_b/payload/metric.{type Metric}
+import sparkleplug/sparkplug_b/payload/metric.{type Metric}
 
 pub type Payload {
   Payload(
