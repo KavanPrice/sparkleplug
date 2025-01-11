@@ -32,7 +32,7 @@ pub type Value {
 }
 
 pub type MetricValueExtension {
-  MetricValueExtension(value: BitArray)
+  MetricValueExtension(value: String)
 }
 
 pub type Template {

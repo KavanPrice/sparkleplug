@@ -24,4 +24,5 @@ pub type PropertySetList {
   PropertySetList(propertyset: List(PropertySet))
 }
 
-pub type PropertyValueExtension
+pub type PropertyValueExtension =
+  String

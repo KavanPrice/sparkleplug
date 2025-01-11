@@ -248,45 +248,197 @@ fn value(
 fn data_set(
   data: dynamic.Dynamic,
 ) -> Result(dataset.DataSet, dynamic.DecodeErrors) {
-  todo
+  dynamic.decode4(
+    dataset.DataSet,
+    dynamic.optional_field("num_of_columns", dynamic.int),
+    dynamic.field("columns", dynamic.list(of: dynamic.string)),
+    dynamic.field("types", dynamic.list(of: dynamic.int)),
+    dynamic.field("rows", dynamic.list(of: row)),
+  )(data)
+}
+
+fn row(data: dynamic.Dynamic) -> Result(dataset.Row, dynamic.DecodeErrors) {
+  dynamic.decode1(
+    dataset.Row,
+    dynamic.field("elements", dynamic.list(of: data_set_value)),
+  )(data)
+}
+
+fn data_set_value(
+  data: dynamic.Dynamic,
+) -> Result(dataset.DataSetValue, dynamic.DecodeErrors) {
+  dynamic.decode1(
+    dataset.DataSetValue,
+    dynamic.optional_field("value", data_value),
+  )(data)
+}
+
+fn data_value(
+  data: dynamic.Dynamic,
+) -> Result(dataset.Value, dynamic.DecodeErrors) {
+  dynamic.any(of: [
+    fn(val) { dynamic.int(val) |> result.map(dataset.IntValue) },
+    fn(val) { dynamic.float(val) |> result.map(dataset.FloatValue) },
+    fn(val) { dynamic.bool(val) |> result.map(dataset.BooleanValue) },
+    fn(val) { dynamic.string(val) |> result.map(dataset.StringValue) },
+  ])(data)
 }
 
 fn template(
   data: dynamic.Dynamic,
 ) -> Result(metric.Template, dynamic.DecodeErrors) {
-  todo
+  dynamic.decode5(
+    metric.Template,
+    dynamic.optional_field("version", dynamic.string),
+    dynamic.field("metrics", dynamic.list(of: metric)),
+    dynamic.field("parameters", dynamic.list(of: parameter)),
+    dynamic.optional_field("template_ref", dynamic.string),
+    dynamic.optional_field("is_definition", dynamic.bool),
+  )(data)
+}
+
+fn parameter(
+  data: dynamic.Dynamic,
+) -> Result(metric.Parameter, dynamic.DecodeErrors) {
+  dynamic.decode3(
+    metric.Parameter,
+    dynamic.optional_field("name", dynamic.string),
+    dynamic.optional_field("type", dynamic.string),
+    dynamic.optional_field("value", dynamic.string),
+  )(data)
 }
 
 fn property_set(
   data: dynamic.Dynamic,
 ) -> Result(propertyset.PropertySet, dynamic.DecodeErrors) {
-  todo
+  dynamic.decode2(
+    propertyset.PropertySet,
+    dynamic.field("keys", dynamic.list(of: dynamic.string)),
+    dynamic.field("values", dynamic.list(of: property_value)),
+  )(data)
+}
+
+fn property_value(
+  data: dynamic.Dynamic,
+) -> Result(propertyset.PropertyValue, dynamic.DecodeErrors) {
+  dynamic.decode3(
+    propertyset.PropertyValue,
+    dynamic.optional_field("type", dynamic.int),
+    dynamic.optional_field("is_null", dynamic.bool),
+    dynamic.optional_field("value", prop_val),
+  )(data)
+}
+
+fn prop_val(
+  data: dynamic.Dynamic,
+) -> Result(propertyset.Value, dynamic.DecodeErrors) {
+  dynamic.any(of: [
+    fn(val) { dynamic.int(val) |> result.map(propertyset.IntValue) },
+    fn(val) { dynamic.float(val) |> result.map(propertyset.FloatValue) },
+    fn(val) { dynamic.bool(val) |> result.map(propertyset.BooleanValue) },
+    fn(val) { dynamic.string(val) |> result.map(propertyset.StringValue) },
+  ])(data)
 }
 
 fn property_set_list(
   data: dynamic.Dynamic,
 ) -> Result(propertyset.PropertySetList, dynamic.DecodeErrors) {
-  todo
+  dynamic.decode1(
+    propertyset.PropertySetList,
+    dynamic.field("propertyset", dynamic.list(of: property_set)),
+  )(data)
 }
 
 fn encode_data_set(dataset: dataset.DataSet) -> json.Json {
-  todo
+  json.object([
+    #("num_of_columns", json.nullable(dataset.num_of_columns, json.int)),
+    #("columns", json.array(dataset.columns, of: json.string)),
+    #("types", json.array(dataset.types, of: json.int)),
+    #("rows", json.array(dataset.rows, of: encode_row)),
+  ])
+}
+
+fn encode_row(row: dataset.Row) -> json.Json {
+  json.object([
+    #("elements", json.array(row.elements, of: encode_data_set_value)),
+  ])
+}
+
+fn encode_data_set_value(data_set_value: dataset.DataSetValue) -> json.Json {
+  json.object([
+    #("value", json.nullable(data_set_value.value, encode_data_set_val)),
+  ])
+}
+
+fn encode_data_set_val(value: dataset.Value) -> json.Json {
+  case value {
+    dataset.IntValue(val) -> json.int(val)
+    dataset.LongValue(val) -> json.int(val)
+    dataset.FloatValue(val) -> json.float(val)
+    dataset.DoubleValue(val) -> json.float(val)
+    dataset.BooleanValue(val) -> json.bool(val)
+    dataset.StringValue(val) | dataset.ExtensionValue(val) -> json.string(val)
+  }
 }
 
 fn encode_template(template: metric.Template) -> json.Json {
-  todo
+  json.object([
+    #("version", json.nullable(template.version, json.string)),
+    #("metrics", json.array(template.metrics, of: metric_to_json)),
+    #("parameters", json.array(template.parameters, of: encode_parameter)),
+    #("template_ref", json.nullable(template.template_ref, json.string)),
+    #("is_definition", json.nullable(template.is_definition, json.bool)),
+  ])
+}
+
+fn encode_parameter(parameter: metric.Parameter) -> json.Json {
+  json.object([
+    #("name", json.nullable(parameter.name, json.string)),
+    #("type", json.nullable(parameter.type_, json.string)),
+    #("value", json.nullable(parameter.value, json.string)),
+  ])
 }
 
 fn encode_extension(extension: metric.MetricValueExtension) -> json.Json {
-  todo
+  json.object([#("value", json.string(extension.value))])
 }
 
 fn encode_property_set(property_set: propertyset.PropertySet) -> json.Json {
-  todo
+  json.object([
+    #("keys", json.array(property_set.keys, of: json.string)),
+    #("values", json.array(property_set.values, of: encode_property_value)),
+  ])
+}
+
+fn encode_property_value(property_value: propertyset.PropertyValue) -> json.Json {
+  json.object([
+    #("type", json.nullable(property_value.type_, json.int)),
+    #("is_null", json.nullable(property_value.is_null, json.bool)),
+    #("value", json.nullable(property_value.value, encode_prop_val)),
+  ])
+}
+
+fn encode_prop_val(prop_val: propertyset.Value) -> json.Json {
+  case prop_val {
+    propertyset.IntValue(val) -> json.int(val)
+    propertyset.LongValue(val) -> json.int(val)
+    propertyset.FloatValue(val) -> json.float(val)
+    propertyset.DoubleValue(val) -> json.float(val)
+    propertyset.BooleanValue(val) -> json.bool(val)
+    propertyset.StringValue(val) -> json.string(val)
+    propertyset.PropertysetValue(val) -> encode_property_set(val)
+    propertyset.PropertysetsValue(val) -> encode_property_set_list(val)
+    propertyset.ExtensionValue(val) -> json.string(val)
+  }
 }
 
 fn encode_property_set_list(
   property_set_list: propertyset.PropertySetList,
 ) -> json.Json {
-  todo
+  json.object([
+    #(
+      "propertyset",
+      json.array(property_set_list.propertyset, encode_property_set),
+    ),
+  ])
 }

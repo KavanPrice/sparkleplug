@@ -27,4 +27,5 @@ pub type Value {
   ExtensionValue(DataSetValueExtension)
 }
 
-pub type DataSetValueExtension
+pub type DataSetValueExtension =
+  String
