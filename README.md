@@ -32,7 +32,7 @@ pub fn main() {
     }"
 
   // This gives you a decoded Payload type to use in your Gleam program.
-  let assert Ok(decoded_payload) = sparkleplug.string_to_sparkplug_payload(payload)
+  let assert Ok(decoded_payload) = sparkleplug.string_to_sparkplug_payload(payload_string)
   ...
 }
 ```
