@@ -31,10 +31,9 @@ pub fn main() {
       \"seq\": 2
     }"
 
-    // This gives you a decoded Payload type to use in your Gleam program.
-    let assert Ok(decoded_payload) = sparkleplug.string_to_sparkplug_payload(payload)
-    ...
-  }
+  // This gives you a decoded Payload type to use in your Gleam program.
+  let assert Ok(decoded_payload) = sparkleplug.string_to_sparkplug_payload(payload)
+  ...
 }
 ```
 
