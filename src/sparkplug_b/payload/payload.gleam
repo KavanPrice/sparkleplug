@@ -7,6 +7,6 @@ pub type Payload {
     metrics: List(Metric),
     seq: Option(Int),
     uuid: Option(String),
-    body: Option(BitArray),
+    body: Option(String),
   )
 }

@@ -11,7 +11,7 @@ pub type Metric {
     is_historical: Option(Bool),
     is_transient: Option(Bool),
     is_null: Option(Bool),
-    metadata: Option(BitArray),
+    metadata: Option(String),
     value: Option(Value),
   )
 }
