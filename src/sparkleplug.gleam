@@ -4,11 +4,11 @@ import gleam/json
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/result
-import sparkplug_b/payload/dataset
-import sparkplug_b/payload/datatype
-import sparkplug_b/payload/metric
-import sparkplug_b/payload/payload
-import sparkplug_b/payload/propertyset
+import sparkleplug/sparkplug_b/payload/dataset
+import sparkleplug/sparkplug_b/payload/datatype
+import sparkleplug/sparkplug_b/payload/metric
+import sparkleplug/sparkplug_b/payload/payload
+import sparkleplug/sparkplug_b/payload/propertyset
 
 /// Attempts to convert a bit array representation of a Sparkplug B payload into a Payload type.
 ///

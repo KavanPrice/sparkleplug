@@ -2,8 +2,8 @@ import gleam/option.{None, Some}
 import gleeunit
 import gleeunit/should
 import sparkleplug
-import sparkplug_b/payload/metric
-import sparkplug_b/payload/payload
+import sparkleplug/sparkplug_b/payload/metric
+import sparkleplug/sparkplug_b/payload/payload
 
 pub fn main() {
   gleeunit.main()
