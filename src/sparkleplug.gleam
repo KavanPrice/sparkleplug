@@ -33,8 +33,7 @@ pub fn string_to_sparkplug_payload(
       json.UnexpectedEndOfInput -> "Unexpected end of input"
       json.UnexpectedByte(message) -> "Unexpected byte: " <> message
       json.UnexpectedFormat(inner_errors) -> {
-        let maybe_first_error = list.first(inner_errors)
-        case maybe_first_error {
+        case list.first(inner_errors) {
           Ok(error) ->
             "Unexpected format: Expected "
             <> error.expected
@@ -44,6 +43,16 @@ pub fn string_to_sparkplug_payload(
         }
       }
       json.UnexpectedSequence(message) -> "Unexpected sequence: " <> message
+      json.UnableToDecode(inner_errors) -> {
+        case list.first(inner_errors) {
+          Ok(error) ->
+            "Unable to decode: Expected "
+            <> error.expected
+            <> "; found "
+            <> error.found
+          Error(_) -> "Unable to decode. No inner errors"
+        }
+      }
     }
   })
 }
