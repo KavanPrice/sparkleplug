@@ -1,14 +1,6 @@
-import gleam/dynamic
-import gleam/option.{type Option, Some}
+import gleam/dynamic/decode
+import gleam/option.{Some, None}
 import gleam/result
-
-pub type DataTypeValue {
-  DataTypeValue(Option(Int))
-}
-
-type DataTypeStringValue {
-  DataTypeStringValue(Option(String))
-}
 
 pub type DataType {
   Unknown
@@ -216,46 +208,17 @@ pub fn from_string(string: String) -> Result(DataType, DataTypeParseError) {
   }
 }
 
-pub fn decode_datatype_value(
-  data: dynamic.Dynamic,
-) -> Result(DataTypeValue, dynamic.DecodeErrors) {
-  let maybe_string_value =
-    data
-    |> dynamic.decode1(
-      DataTypeStringValue,
-      dynamic.optional_field("dataType", dynamic.string),
-    )
+pub fn decode_datatype(
+  data: decode.Dynamic,
+) -> Result(DataType, List(decode.DecodeError)) {
 
-  case maybe_string_value {
-    Ok(string_val) -> {
-      convert_datatype_value(string_val)
-      |> result.map_error(fn(_) {
-        [dynamic.DecodeError(expected: "", found: "", path: [])]
-      })
-    }
-    Error(_) -> {
-      data
-      |> dynamic.decode1(
-        DataTypeValue,
-        dynamic.optional_field("dataType", dynamic.int),
-      )
-    }
+  let decoder = decode.optional(decode.one_of(decode.int |> decode.map(from_int), or: [decode.string |> decode.map(from_string)]))
+
+  case decode.run(data, decoder) {
+    Ok(Some(maybe_data_type)) -> maybe_data_type |> result.replace_error(decode.decode_error(expected: "Int or String corresponding to a DataType", found: data))
+    Ok(None) -> Ok(Bytes)
+    Error(decode_errors) -> Error(decode_errors)
   }
-}
-
-fn convert_datatype_value(
-  data_type_string_value: DataTypeStringValue,
-) -> Result(DataTypeValue, DataTypeParseError) {
-  let DataTypeStringValue(maybe_string) = data_type_string_value
-
-  option.map(maybe_string, fn(string_value) {
-    from_string(string_value) |> result.map(to_int)
-  })
-  |> option.to_result(DataTypeParseError(
-    "Couldn't convert String value to Int datatype representation.",
-  ))
-  |> result.flatten
-  |> result.map(fn(int_val) { DataTypeValue(Some(int_val)) })
 }
 
 pub type DataTypeParseError {
