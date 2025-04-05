@@ -151,86 +151,157 @@ fn json_to_sparkplug_payload(
   json_string: String,
 ) -> Result(payload.Payload, json.DecodeError) {
   let sparkplug_decoder = {
-    use maybe_timestamp <- decode.optional_field("timestamp", None, decode.optional(decode.int))
+    use maybe_timestamp <- decode.optional_field(
+      "timestamp",
+      None,
+      decode.optional(decode.int),
+    )
     use metrics <- decode.field("metrics", decode.list(metric_decoder()))
-    use maybe_seq <- decode.optional_field("seq", None, decode.optional(decode.int))
-    use maybe_uuid <- decode.optional_field("uuid", None, decode.optional(decode.string))
-    use maybe_body <- decode.optional_field("body", None, decode.optional(decode.string))
-    decode.success(payload.Payload(maybe_timestamp, metrics, maybe_seq, maybe_uuid, maybe_body))
+    use maybe_seq <- decode.optional_field(
+      "seq",
+      None,
+      decode.optional(decode.int),
+    )
+    use maybe_uuid <- decode.optional_field(
+      "uuid",
+      None,
+      decode.optional(decode.string),
+    )
+    use maybe_body <- decode.optional_field(
+      "body",
+      None,
+      decode.optional(decode.string),
+    )
+    decode.success(payload.Payload(
+      maybe_timestamp,
+      metrics,
+      maybe_seq,
+      maybe_uuid,
+      maybe_body,
+    ))
   }
 
   json.parse(json_string, sparkplug_decoder)
 }
 
 fn metric_decoder() -> decode.Decoder(metric.Metric) {
-  use maybe_name <- decode.optional_field("name", None, decode.optional(decode.string))
-  use maybe_alias <- decode.optional_field("alias", None, decode.optional(decode.int))
-  use maybe_timestamp <- decode.optional_field("timestamp", None, decode.optional(decode.int))
-  use datatype <- decode.optional_field("dataType", datatype.Bytes, datatype_decoder())
-  use maybe_is_historical <- decode.optional_field("is_historical", None, decode.optional(decode.bool))
-  use maybe_is_transient <- decode.optional_field("is_transient", None, decode.optional(decode.bool))
-  use maybe_is_null <- decode.optional_field("is_null", None, decode.optional(decode.bool))
-  use maybe_metadata <- decode.optional_field("metadata", None, decode.optional(decode.string))
-  use maybe_value <- decode.field("value", decode.optional(value_decoder(datatype)))
-  decode.success(metric.Metric(maybe_name, maybe_alias, maybe_timestamp, Some(datatype |> datatype.to_int), maybe_is_historical, maybe_is_transient, maybe_is_null, maybe_metadata, maybe_value))
+  use maybe_name <- decode.optional_field(
+    "name",
+    None,
+    decode.optional(decode.string),
+  )
+  use maybe_alias <- decode.optional_field(
+    "alias",
+    None,
+    decode.optional(decode.int),
+  )
+  use maybe_timestamp <- decode.optional_field(
+    "timestamp",
+    None,
+    decode.optional(decode.int),
+  )
+  use datatype <- decode.optional_field(
+    "dataType",
+    datatype.Bytes,
+    datatype_decoder(),
+  )
+  use maybe_is_historical <- decode.optional_field(
+    "is_historical",
+    None,
+    decode.optional(decode.bool),
+  )
+  use maybe_is_transient <- decode.optional_field(
+    "is_transient",
+    None,
+    decode.optional(decode.bool),
+  )
+  use maybe_is_null <- decode.optional_field(
+    "is_null",
+    None,
+    decode.optional(decode.bool),
+  )
+  use maybe_metadata <- decode.optional_field(
+    "metadata",
+    None,
+    decode.optional(decode.string),
+  )
+  use maybe_value <- decode.field(
+    "value",
+    decode.optional(value_decoder(datatype)),
+  )
+  decode.success(metric.Metric(
+    maybe_name,
+    maybe_alias,
+    maybe_timestamp,
+    Some(datatype |> datatype.to_int),
+    maybe_is_historical,
+    maybe_is_transient,
+    maybe_is_null,
+    maybe_metadata,
+    maybe_value,
+  ))
 }
 
 fn datatype_decoder() -> decode.Decoder(datatype.DataType) {
-  decode.one_of(decode.int |> decode.map(datatype.from_int), or: [decode.string |> decode.map(datatype.from_string)])
+  decode.one_of(decode.int |> decode.map(datatype.from_int), or: [
+    decode.string |> decode.map(datatype.from_string),
+  ])
   |> decode.map(fn(result) {
     case result {
       Ok(datatype) -> datatype
       Error(_) -> datatype.Bytes
     }
   })
-
 }
 
 fn value_decoder(datatype: datatype.DataType) -> decode.Decoder(metric.Value) {
   case datatype {
-  datatype.Unknown -> decode.bit_array |> decode.map(metric.BytesValue)
-  datatype.Int8
- | datatype.Int16
- | datatype.Int32
- | datatype.Int64
- | datatype.UInt8
- | datatype.UInt16
- | datatype.UInt32
- | datatype.UInt64 -> decode.int |> decode.map(metric.IntValue)
- datatype.Float | datatype.Double ->
-   decode.float |> decode.map(metric.FloatValue)
- datatype.Boolean -> decode.bool |> decode.map(metric.BooleanValue)
- datatype.String -> decode.string |> decode.map(metric.StringValue)
- datatype.DateTime -> decode.int |> decode.map(metric.IntValue)
- datatype.Text -> decode.string |> decode.map(metric.StringValue)
- datatype.UUID -> decode.string |> decode.map(metric.StringValue)
- datatype.DataSet -> data_set_decoder() |> decode.map(metric.DatasetValue)
- datatype.Bytes | datatype.File ->
-   decode.bit_array |> decode.map(metric.BytesValue)
- datatype.Template -> template_decoder() |> decode.map(metric.TemplateValue)
- datatype.PropertySet ->
-   property_set_decoder() |> decode.map(metric.PropertySetValue)
- datatype.PropertySetList ->
-   property_set_list_decoder() |> decode.map(metric.PropertySetListValue)
- datatype.Int8Array
- | datatype.Int16Array
- | datatype.Int32Array
- | datatype.Int64Array
- | datatype.UInt8Array
- | datatype.UInt16Array
- | datatype.UInt32Array
- | datatype.UInt64Array
- | datatype.FloatArray
- | datatype.DoubleArray
- | datatype.BooleanArray
- | datatype.StringArray
- | datatype.DateTimeArray ->
-   decode.bit_array |> decode.map(metric.BytesValue)
+    datatype.Unknown -> decode.bit_array |> decode.map(metric.BytesValue)
+    datatype.Int8
+    | datatype.Int16
+    | datatype.Int32
+    | datatype.Int64
+    | datatype.UInt8
+    | datatype.UInt16
+    | datatype.UInt32
+    | datatype.UInt64 -> decode.int |> decode.map(metric.IntValue)
+    datatype.Float | datatype.Double ->
+      decode.float |> decode.map(metric.FloatValue)
+    datatype.Boolean -> decode.bool |> decode.map(metric.BooleanValue)
+    datatype.String -> decode.string |> decode.map(metric.StringValue)
+    datatype.DateTime -> decode.int |> decode.map(metric.IntValue)
+    datatype.Text -> decode.string |> decode.map(metric.StringValue)
+    datatype.UUID -> decode.string |> decode.map(metric.StringValue)
+    datatype.DataSet -> data_set_decoder() |> decode.map(metric.DatasetValue)
+    datatype.Bytes | datatype.File ->
+      decode.bit_array |> decode.map(metric.BytesValue)
+    datatype.Template -> template_decoder() |> decode.map(metric.TemplateValue)
+    datatype.PropertySet ->
+      property_set_decoder() |> decode.map(metric.PropertySetValue)
+    datatype.PropertySetList ->
+      property_set_list_decoder() |> decode.map(metric.PropertySetListValue)
+    datatype.Int8Array
+    | datatype.Int16Array
+    | datatype.Int32Array
+    | datatype.Int64Array
+    | datatype.UInt8Array
+    | datatype.UInt16Array
+    | datatype.UInt32Array
+    | datatype.UInt64Array
+    | datatype.FloatArray
+    | datatype.DoubleArray
+    | datatype.BooleanArray
+    | datatype.StringArray
+    | datatype.DateTimeArray ->
+      decode.bit_array |> decode.map(metric.BytesValue)
   }
 }
 
 fn data_set_decoder() -> decode.Decoder(dataset.DataSet) {
-  use maybe_num_of_columns <- decode.field("num_of_columns", decode.optional(decode.int))
+  use maybe_num_of_columns <- decode.field(
+    "num_of_columns",
+    decode.optional(decode.int),
+  )
   use columns <- decode.field("columns", decode.list(decode.string))
   use types <- decode.field("types", decode.list(decode.int))
   use rows <- decode.field("rows", decode.list(row_decoder()))
@@ -242,28 +313,41 @@ fn row_decoder() -> decode.Decoder(dataset.Row) {
   decode.success(dataset.Row(row))
 }
 
-
 fn data_set_value_decoder() -> decode.Decoder(dataset.DataSetValue) {
-  use maybe_data_set_value <- decode.field("value", decode.optional(data_value_decoder()))
+  use maybe_data_set_value <- decode.field(
+    "value",
+    decode.optional(data_value_decoder()),
+  )
   decode.success(dataset.DataSetValue(maybe_data_set_value))
 }
 
 fn data_value_decoder() -> decode.Decoder(dataset.Value) {
-  decode.one_of(decode.int |> decode.map(dataset.IntValue),
-    [
-      decode.float |> decode.map(dataset.FloatValue),
-      decode.bool |> decode.map(dataset.BooleanValue),
-      decode.string |> decode.map(dataset.StringValue),
-    ])
+  decode.one_of(decode.int |> decode.map(dataset.IntValue), [
+    decode.float |> decode.map(dataset.FloatValue),
+    decode.bool |> decode.map(dataset.BooleanValue),
+    decode.string |> decode.map(dataset.StringValue),
+  ])
 }
 
 fn template_decoder() -> decode.Decoder(metric.Template) {
   use maybe_version <- decode.field("version", decode.optional(decode.string))
   use metrics <- decode.field("metrics", decode.list(metric_decoder()))
   use parameters <- decode.field("parameters", decode.list(parameter_decoder()))
-  use maybe_template_ref <- decode.field("template_ref", decode.optional(decode.string))
-  use maybe_is_definition <- decode.field("is_definition", decode.optional(decode.bool))
-  decode.success(metric.Template(maybe_version, metrics, parameters, maybe_template_ref, maybe_is_definition))
+  use maybe_template_ref <- decode.field(
+    "template_ref",
+    decode.optional(decode.string),
+  )
+  use maybe_is_definition <- decode.field(
+    "is_definition",
+    decode.optional(decode.bool),
+  )
+  decode.success(metric.Template(
+    maybe_version,
+    metrics,
+    parameters,
+    maybe_template_ref,
+    maybe_is_definition,
+  ))
 }
 
 fn parameter_decoder() -> decode.Decoder(metric.Parameter) {
@@ -282,12 +366,28 @@ fn property_set_decoder() -> decode.Decoder(propertyset.PropertySet) {
 fn property_value_decoder() -> decode.Decoder(propertyset.PropertyValue) {
   use maybe_type <- decode.field("type", decode.optional(decode.int))
   use maybe_is_null <- decode.field("is_null", decode.optional(decode.bool))
-  use maybe_value <- decode.field("value", decode.optional(decode.one_of(decode.int |> decode.map(propertyset.IntValue), [decode.float |> decode.map(propertyset.FloatValue), decode.bool |> decode.map(propertyset.BooleanValue), decode.string |> decode.map(propertyset.StringValue)])))
-  decode.success(propertyset.PropertyValue(maybe_type, maybe_is_null, maybe_value))
+  use maybe_value <- decode.field(
+    "value",
+    decode.optional(
+      decode.one_of(decode.int |> decode.map(propertyset.IntValue), [
+        decode.float |> decode.map(propertyset.FloatValue),
+        decode.bool |> decode.map(propertyset.BooleanValue),
+        decode.string |> decode.map(propertyset.StringValue),
+      ]),
+    ),
+  )
+  decode.success(propertyset.PropertyValue(
+    maybe_type,
+    maybe_is_null,
+    maybe_value,
+  ))
 }
 
 fn property_set_list_decoder() -> decode.Decoder(propertyset.PropertySetList) {
-  use property_set_list <- decode.field("propertyset", decode.list(property_set_decoder()))
+  use property_set_list <- decode.field(
+    "propertyset",
+    decode.list(property_set_decoder()),
+  )
   decode.success(propertyset.PropertySetList(property_set_list))
 }
 

@@ -1,5 +1,5 @@
 import gleam/dynamic/decode
-import gleam/option.{Some, None}
+import gleam/option.{None, Some}
 import gleam/result
 
 pub type DataType {
@@ -211,11 +211,20 @@ pub fn from_string(string: String) -> Result(DataType, DataTypeParseError) {
 pub fn decode_datatype(
   data: decode.Dynamic,
 ) -> Result(DataType, List(decode.DecodeError)) {
-
-  let decoder = decode.optional(decode.one_of(decode.int |> decode.map(from_int), or: [decode.string |> decode.map(from_string)]))
+  let decoder =
+    decode.optional(
+      decode.one_of(decode.int |> decode.map(from_int), or: [
+        decode.string |> decode.map(from_string),
+      ]),
+    )
 
   case decode.run(data, decoder) {
-    Ok(Some(maybe_data_type)) -> maybe_data_type |> result.replace_error(decode.decode_error(expected: "Int or String corresponding to a DataType", found: data))
+    Ok(Some(maybe_data_type)) ->
+      maybe_data_type
+      |> result.replace_error(decode.decode_error(
+        expected: "Int or String corresponding to a DataType",
+        found: data,
+      ))
     Ok(None) -> Ok(Bytes)
     Error(decode_errors) -> Error(decode_errors)
   }
