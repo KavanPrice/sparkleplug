@@ -1,5 +1,5 @@
 import gleam/bit_array
-import gleam/dynamic
+import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleam/option.{None, Some}
@@ -63,7 +63,7 @@ pub fn string_to_sparkplug_payload(
 pub fn string_to_metric(
   metric_string: String,
 ) -> Result(metric.Metric, json.DecodeError) {
-  json.decode(metric_string, metric)
+  json.parse(metric_string, metric_decoder())
 }
 
 /// Serialise a Payload into a JSON string.
@@ -150,212 +150,145 @@ fn value_to_json(value: metric.Value) -> json.Json {
 fn json_to_sparkplug_payload(
   json_string: String,
 ) -> Result(payload.Payload, json.DecodeError) {
-  let sparkplug_decoder =
-    dynamic.decode5(
-      payload.Payload,
-      dynamic.optional_field("timestamp", dynamic.int),
-      dynamic.field("metrics", dynamic.list(metric)),
-      dynamic.optional_field("seq", dynamic.int),
-      dynamic.optional_field("uuid", dynamic.string),
-      dynamic.optional_field("body", dynamic.string),
-    )
+  let sparkplug_decoder = {
+    use maybe_timestamp <- decode.optional_field("timestamp", None, decode.optional(decode.int))
+    use metrics <- decode.field("metrics", decode.list(metric_decoder()))
+    use maybe_seq <- decode.optional_field("seq", None, decode.optional(decode.int))
+    use maybe_uuid <- decode.optional_field("uuid", None, decode.optional(decode.string))
+    use maybe_body <- decode.optional_field("body", None, decode.optional(decode.string))
+    decode.success(payload.Payload(maybe_timestamp, metrics, maybe_seq, maybe_uuid, maybe_body))
+  }
 
-  json.decode(json_string, sparkplug_decoder)
+  json.parse(json_string, sparkplug_decoder)
 }
 
-fn metric(data: dynamic.Dynamic) -> Result(metric.Metric, dynamic.DecodeErrors) {
-  let metric_datatype = {
-    case dynamic.field("dataType", dynamic.string)(data) {
-      Ok(str) -> {
-        datatype.from_string(str)
-        |> result.unwrap(datatype.Bytes)
-      }
-      Error(_) ->
-        dynamic.field("dataType", dynamic.int)(data)
-        |> result.unwrap(17)
-        |> datatype.from_int
-        |> result.unwrap(datatype.Bytes)
+fn metric_decoder() -> decode.Decoder(metric.Metric) {
+  use maybe_name <- decode.optional_field("name", None, decode.optional(decode.string))
+  use maybe_alias <- decode.optional_field("alias", None, decode.optional(decode.int))
+  use maybe_timestamp <- decode.optional_field("timestamp", None, decode.optional(decode.int))
+  use datatype <- decode.optional_field("dataType", datatype.Bytes, datatype_decoder())
+  use maybe_is_historical <- decode.optional_field("is_historical", None, decode.optional(decode.bool))
+  use maybe_is_transient <- decode.optional_field("is_transient", None, decode.optional(decode.bool))
+  use maybe_is_null <- decode.optional_field("is_null", None, decode.optional(decode.bool))
+  use maybe_metadata <- decode.optional_field("metadata", None, decode.optional(decode.string))
+  use maybe_value <- decode.field("value", decode.optional(value_decoder(datatype)))
+  decode.success(metric.Metric(maybe_name, maybe_alias, maybe_timestamp, Some(datatype |> datatype.to_int), maybe_is_historical, maybe_is_transient, maybe_is_null, maybe_metadata, maybe_value))
+}
+
+fn datatype_decoder() -> decode.Decoder(datatype.DataType) {
+  decode.one_of(decode.int |> decode.map(datatype.from_int), or: [decode.string |> decode.map(datatype.from_string)])
+  |> decode.map(fn(result) {
+    case result {
+      Ok(datatype) -> datatype
+      Error(_) -> datatype.Bytes
     }
-  }
+  })
 
-  dynamic.decode9(
-    metric.Metric,
-    dynamic.optional_field("name", dynamic.string),
-    dynamic.optional_field("alias", dynamic.int),
-    dynamic.optional_field("timestamp", dynamic.int),
-    dynamic.optional_field("dataType", fn(data) {
-      case dynamic.string(data) {
-        Ok(str) -> {
-          Ok(
-            datatype.from_string(str)
-            |> result.map(datatype.to_int)
-            |> result.unwrap(17),
-          )
-        }
-        Error(_) -> dynamic.int(data)
-      }
-    }),
-    dynamic.optional_field("is_historical", dynamic.bool),
-    dynamic.optional_field("is_transient", dynamic.bool),
-    dynamic.optional_field("is_null", dynamic.bool),
-    dynamic.optional_field("metadata", dynamic.string),
-    dynamic.optional_field("value", fn(data) -> Result(
-      metric.Value,
-      dynamic.DecodeErrors,
-    ) {
-      value(data, metric_datatype)
-    }),
-  )(data)
 }
 
-fn value(
-  data: dynamic.Dynamic,
-  data_type: datatype.DataType,
-) -> Result(metric.Value, dynamic.DecodeErrors) {
-  case data_type {
-    datatype.Unknown -> dynamic.bit_array(data) |> result.map(metric.BytesValue)
-    datatype.Int8
-    | datatype.Int16
-    | datatype.Int32
-    | datatype.Int64
-    | datatype.UInt8
-    | datatype.UInt16
-    | datatype.UInt32
-    | datatype.UInt64 -> dynamic.int(data) |> result.map(metric.IntValue)
-    datatype.Float | datatype.Double ->
-      dynamic.float(data) |> result.map(metric.FloatValue)
-    datatype.Boolean -> dynamic.bool(data) |> result.map(metric.BooleanValue)
-    datatype.String -> dynamic.string(data) |> result.map(metric.StringValue)
-    datatype.DateTime -> dynamic.int(data) |> result.map(metric.IntValue)
-    datatype.Text -> dynamic.string(data) |> result.map(metric.StringValue)
-    datatype.UUID -> dynamic.string(data) |> result.map(metric.StringValue)
-    datatype.DataSet -> data_set(data) |> result.map(metric.DatasetValue)
-    datatype.Bytes | datatype.File ->
-      dynamic.bit_array(data) |> result.map(metric.BytesValue)
-    datatype.Template -> template(data) |> result.map(metric.TemplateValue)
-    datatype.PropertySet ->
-      property_set(data) |> result.map(metric.PropertySetValue)
-    datatype.PropertySetList ->
-      property_set_list(data) |> result.map(metric.PropertySetListValue)
-    datatype.Int8Array
-    | datatype.Int16Array
-    | datatype.Int32Array
-    | datatype.Int64Array
-    | datatype.UInt8Array
-    | datatype.UInt16Array
-    | datatype.UInt32Array
-    | datatype.UInt64Array
-    | datatype.FloatArray
-    | datatype.DoubleArray
-    | datatype.BooleanArray
-    | datatype.StringArray
-    | datatype.DateTimeArray ->
-      dynamic.bit_array(data) |> result.map(metric.BytesValue)
+fn value_decoder(datatype: datatype.DataType) -> decode.Decoder(metric.Value) {
+  case datatype {
+  datatype.Unknown -> decode.bit_array |> decode.map(metric.BytesValue)
+  datatype.Int8
+ | datatype.Int16
+ | datatype.Int32
+ | datatype.Int64
+ | datatype.UInt8
+ | datatype.UInt16
+ | datatype.UInt32
+ | datatype.UInt64 -> decode.int |> decode.map(metric.IntValue)
+ datatype.Float | datatype.Double ->
+   decode.float |> decode.map(metric.FloatValue)
+ datatype.Boolean -> decode.bool |> decode.map(metric.BooleanValue)
+ datatype.String -> decode.string |> decode.map(metric.StringValue)
+ datatype.DateTime -> decode.int |> decode.map(metric.IntValue)
+ datatype.Text -> decode.string |> decode.map(metric.StringValue)
+ datatype.UUID -> decode.string |> decode.map(metric.StringValue)
+ datatype.DataSet -> data_set_decoder() |> decode.map(metric.DatasetValue)
+ datatype.Bytes | datatype.File ->
+   decode.bit_array |> decode.map(metric.BytesValue)
+ datatype.Template -> template_decoder() |> decode.map(metric.TemplateValue)
+ datatype.PropertySet ->
+   property_set_decoder() |> decode.map(metric.PropertySetValue)
+ datatype.PropertySetList ->
+   property_set_list_decoder() |> decode.map(metric.PropertySetListValue)
+ datatype.Int8Array
+ | datatype.Int16Array
+ | datatype.Int32Array
+ | datatype.Int64Array
+ | datatype.UInt8Array
+ | datatype.UInt16Array
+ | datatype.UInt32Array
+ | datatype.UInt64Array
+ | datatype.FloatArray
+ | datatype.DoubleArray
+ | datatype.BooleanArray
+ | datatype.StringArray
+ | datatype.DateTimeArray ->
+   decode.bit_array |> decode.map(metric.BytesValue)
   }
 }
 
-fn data_set(
-  data: dynamic.Dynamic,
-) -> Result(dataset.DataSet, dynamic.DecodeErrors) {
-  dynamic.decode4(
-    dataset.DataSet,
-    dynamic.optional_field("num_of_columns", dynamic.int),
-    dynamic.field("columns", dynamic.list(of: dynamic.string)),
-    dynamic.field("types", dynamic.list(of: dynamic.int)),
-    dynamic.field("rows", dynamic.list(of: row)),
-  )(data)
+fn data_set_decoder() -> decode.Decoder(dataset.DataSet) {
+  use maybe_num_of_columns <- decode.field("num_of_columns", decode.optional(decode.int))
+  use columns <- decode.field("columns", decode.list(decode.string))
+  use types <- decode.field("types", decode.list(decode.int))
+  use rows <- decode.field("rows", decode.list(row_decoder()))
+  decode.success(dataset.DataSet(maybe_num_of_columns, columns, types, rows))
 }
 
-fn row(data: dynamic.Dynamic) -> Result(dataset.Row, dynamic.DecodeErrors) {
-  dynamic.decode1(
-    dataset.Row,
-    dynamic.field("elements", dynamic.list(of: data_set_value)),
-  )(data)
+fn row_decoder() -> decode.Decoder(dataset.Row) {
+  use row <- decode.field("elements", decode.list(data_set_value_decoder()))
+  decode.success(dataset.Row(row))
 }
 
-fn data_set_value(
-  data: dynamic.Dynamic,
-) -> Result(dataset.DataSetValue, dynamic.DecodeErrors) {
-  dynamic.decode1(
-    dataset.DataSetValue,
-    dynamic.optional_field("value", data_value),
-  )(data)
+
+fn data_set_value_decoder() -> decode.Decoder(dataset.DataSetValue) {
+  use maybe_data_set_value <- decode.field("value", decode.optional(data_value_decoder()))
+  decode.success(dataset.DataSetValue(maybe_data_set_value))
 }
 
-fn data_value(
-  data: dynamic.Dynamic,
-) -> Result(dataset.Value, dynamic.DecodeErrors) {
-  dynamic.any(of: [
-    fn(val) { dynamic.int(val) |> result.map(dataset.IntValue) },
-    fn(val) { dynamic.float(val) |> result.map(dataset.FloatValue) },
-    fn(val) { dynamic.bool(val) |> result.map(dataset.BooleanValue) },
-    fn(val) { dynamic.string(val) |> result.map(dataset.StringValue) },
-  ])(data)
+fn data_value_decoder() -> decode.Decoder(dataset.Value) {
+  decode.one_of(decode.int |> decode.map(dataset.IntValue),
+    [
+      decode.float |> decode.map(dataset.FloatValue),
+      decode.bool |> decode.map(dataset.BooleanValue),
+      decode.string |> decode.map(dataset.StringValue),
+    ])
 }
 
-fn template(
-  data: dynamic.Dynamic,
-) -> Result(metric.Template, dynamic.DecodeErrors) {
-  dynamic.decode5(
-    metric.Template,
-    dynamic.optional_field("version", dynamic.string),
-    dynamic.field("metrics", dynamic.list(of: metric)),
-    dynamic.field("parameters", dynamic.list(of: parameter)),
-    dynamic.optional_field("template_ref", dynamic.string),
-    dynamic.optional_field("is_definition", dynamic.bool),
-  )(data)
+fn template_decoder() -> decode.Decoder(metric.Template) {
+  use maybe_version <- decode.field("version", decode.optional(decode.string))
+  use metrics <- decode.field("metrics", decode.list(metric_decoder()))
+  use parameters <- decode.field("parameters", decode.list(parameter_decoder()))
+  use maybe_template_ref <- decode.field("template_ref", decode.optional(decode.string))
+  use maybe_is_definition <- decode.field("is_definition", decode.optional(decode.bool))
+  decode.success(metric.Template(maybe_version, metrics, parameters, maybe_template_ref, maybe_is_definition))
 }
 
-fn parameter(
-  data: dynamic.Dynamic,
-) -> Result(metric.Parameter, dynamic.DecodeErrors) {
-  dynamic.decode3(
-    metric.Parameter,
-    dynamic.optional_field("name", dynamic.string),
-    dynamic.optional_field("type", dynamic.string),
-    dynamic.optional_field("value", dynamic.string),
-  )(data)
+fn parameter_decoder() -> decode.Decoder(metric.Parameter) {
+  use maybe_name <- decode.field("name", decode.optional(decode.string))
+  use maybe_type <- decode.field("type", decode.optional(decode.string))
+  use maybe_value <- decode.field("value", decode.optional(decode.string))
+  decode.success(metric.Parameter(maybe_name, maybe_type, maybe_value))
 }
 
-fn property_set(
-  data: dynamic.Dynamic,
-) -> Result(propertyset.PropertySet, dynamic.DecodeErrors) {
-  dynamic.decode2(
-    propertyset.PropertySet,
-    dynamic.field("keys", dynamic.list(of: dynamic.string)),
-    dynamic.field("values", dynamic.list(of: property_value)),
-  )(data)
+fn property_set_decoder() -> decode.Decoder(propertyset.PropertySet) {
+  use keys <- decode.field("keys", decode.list(decode.string))
+  use values <- decode.field("values", decode.list(property_value_decoder()))
+  decode.success(propertyset.PropertySet(keys, values))
 }
 
-fn property_value(
-  data: dynamic.Dynamic,
-) -> Result(propertyset.PropertyValue, dynamic.DecodeErrors) {
-  dynamic.decode3(
-    propertyset.PropertyValue,
-    dynamic.optional_field("type", dynamic.int),
-    dynamic.optional_field("is_null", dynamic.bool),
-    dynamic.optional_field("value", prop_val),
-  )(data)
+fn property_value_decoder() -> decode.Decoder(propertyset.PropertyValue) {
+  use maybe_type <- decode.field("type", decode.optional(decode.int))
+  use maybe_is_null <- decode.field("is_null", decode.optional(decode.bool))
+  use maybe_value <- decode.field("value", decode.optional(decode.one_of(decode.int |> decode.map(propertyset.IntValue), [decode.float |> decode.map(propertyset.FloatValue), decode.bool |> decode.map(propertyset.BooleanValue), decode.string |> decode.map(propertyset.StringValue)])))
+  decode.success(propertyset.PropertyValue(maybe_type, maybe_is_null, maybe_value))
 }
 
-fn prop_val(
-  data: dynamic.Dynamic,
-) -> Result(propertyset.Value, dynamic.DecodeErrors) {
-  dynamic.any(of: [
-    fn(val) { dynamic.int(val) |> result.map(propertyset.IntValue) },
-    fn(val) { dynamic.float(val) |> result.map(propertyset.FloatValue) },
-    fn(val) { dynamic.bool(val) |> result.map(propertyset.BooleanValue) },
-    fn(val) { dynamic.string(val) |> result.map(propertyset.StringValue) },
-  ])(data)
-}
-
-fn property_set_list(
-  data: dynamic.Dynamic,
-) -> Result(propertyset.PropertySetList, dynamic.DecodeErrors) {
-  dynamic.decode1(
-    propertyset.PropertySetList,
-    dynamic.field("propertyset", dynamic.list(of: property_set)),
-  )(data)
+fn property_set_list_decoder() -> decode.Decoder(propertyset.PropertySetList) {
+  use property_set_list <- decode.field("propertyset", decode.list(property_set_decoder()))
+  decode.success(propertyset.PropertySetList(property_set_list))
 }
 
 fn encode_data_set(dataset: dataset.DataSet) -> json.Json {
